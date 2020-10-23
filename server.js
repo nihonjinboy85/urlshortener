@@ -17,11 +17,13 @@ app.use(cors());
 
 // Set the MongoDB Client that will be used
 const client = new MongoClient(process.env.DB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+let urlCollection = '';
 client.connect(err => {
   if(err) {
     res.json({ status: 'failure', msg: err });
   } else {
-    const collection = client.db('url-shortener').collection('urls');
+    urlCollection = client.db('url-shortener').collection('urls');
+    console.log('Connected to db...');
   }
 });
 
@@ -38,28 +40,31 @@ app.get('/', function(req, res){
 
 // Handle POST requests to add new URLs to collection and return short URL
 app.post('/api/shorturl/new', (req, res) => {
-  try {
-    const myURL = new URL(req.body.url);
-    dns.lookup(myURL.host, (err) => {
-      if(err) {
-        res.json({ error: 'invalid URL' });
-      } else {
-        res.json({ original_url: myURL, short_url: 1 });
-      }
-    });
-  }
-  catch {
-    res.json({ error: 'invalid URL' });
-  }
+  const myURL = new URL(req.body.url);
+  dns.lookup(myURL.host, (err) => {
+    if(err) {
+      res.json({ error: 'invalid URL' });
+    } else {
+      const urlDocument = { original_url: req.body.url };
+      urlCollection.insertOne(urlDocument)
+        .then(() => { urlCollection.findOne({original_url: req.body.url})
+          .then(result => result === null ? 
+                res.json({ error: 'URL not added to DB' }) :
+                res.json({ original_url: result.original_url, short_url: result._id }))
+          .catch(error => res.json({ error: 'invalid query' }));
+        })
+        .catch(error => res.json({ error: 'invalid URL' }));
+    }
+  });
 });
 
 // Lookup URL ID provided and redirect to corresponding long URL
 app.get('/api/shorturl/:id', (req, res) => {
-  if(Number(req.params.id) === 3) {
-    res.redirect('https://forum.freecodecamp.org/');
-  } else {
-    res.json({ status: 'failure', msg: `${req.params.id} doesn't equal 3`});
-  }
+  urlCollection.findOne({ original_url: 'https://forum.freecodecamp.org' })
+    .then(result => {
+      result === null ? res.json({ error: 'invalid URL' }) : res.redirect(result.original_url);
+    })
+    .catch(err => res.json({ error: 'invalid query'}));
 });
 
 // Start server
