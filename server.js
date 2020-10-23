@@ -20,7 +20,7 @@ const client = new MongoClient(process.env.DB_URI, { useNewUrlParser: true, useU
 let urlCollection = '';
 client.connect(err => {
   if(err) {
-    res.json({ status: 'failure', msg: err });
+    console.error(err);
   } else {
     urlCollection = client.db('url-shortener').collection('urls');
     console.log('Connected to db...');
@@ -46,14 +46,19 @@ app.post('/api/shorturl/new', (req, res) => {
       res.json({ error: 'invalid URL' });
     } else {
       const urlDocument = { original_url: req.body.url };
-      urlCollection.insertOne(urlDocument)
-        .then(() => { urlCollection.findOne({original_url: req.body.url})
-          .then(result => result === null ? 
-                res.json({ error: 'URL not added to DB' }) :
-                res.json({ original_url: result.original_url, short_url: result._id }))
-          .catch(error => res.json({ error: 'invalid query' }));
-        })
-        .catch(error => res.json({ error: 'invalid URL' }));
+      urlCollection.findOne(urlDocument).then(result => {
+        if(result === null) {
+          urlCollection.insertOne(urlDocument).then(() => {
+            urlCollection.findOne(urlDocument).then(result => {
+              res.json(result === null ? { error: 'URL not added to DB' } : result);
+            })
+            .catch(error => res.json({ error: 'invalid query' }));
+          })
+          .catch(error => res.json({ error: 'invalid URL' }));
+        } else {
+          res.json(result);
+        }
+      });
     }
   });
 });
