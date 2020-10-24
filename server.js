@@ -42,43 +42,43 @@ app.get('/', function(req, res){
 app.post('/api/shorturl/new', (req, res) => {
   try {
     const myURL = new URL(req.body.url);
+    dns.lookup(myURL.host, (err) => {
+      if(err) {
+        res.json({ error: 'invalid url' });
+      } else {
+        const urlDocument = { original_url: req.body.url };
+        urlCollection.findOne(urlDocument).then(result => {
+          if(result === null) {
+            getNextSequenceValue('urlid').then(sequenceDocument => {
+              const short_url = sequenceDocument.value.sequence_value;
+              urlCollection.insertOne({ ...urlDocument, short_url: short_url }).then(() => {
+                urlCollection.findOne(urlDocument).then(result => {
+                  if(result === null) {
+                    res.json({ error: 'URL not added to DB' });
+                  } else {
+                    res.json({
+                      original_url: result.original_url,
+                      short_url: result.short_url
+                    });
+                  }
+                })
+                .catch(error => res.json({ error: 'invalid query' }));
+              })
+              .catch(error => res.json({ error: 'invalid url' }));
+            })
+            .catch(error => res.json({ error: 'new ID not created' }));
+          } else {
+            res.json({
+              original_url: result.original_url,
+              short_url: result.short_url
+            });
+          }
+        });
+      }
+    });
   } catch {
     res.json({ error: 'invalid url' });
   }
-  dns.lookup(myURL.host, (err) => {
-    if(err) {
-      res.json({ error: 'invalid url' });
-    } else {
-      const urlDocument = { original_url: req.body.url };
-      urlCollection.findOne(urlDocument).then(result => {
-        if(result === null) {
-          getNextSequenceValue('urlid').then(sequenceDocument => {
-            const short_url = sequenceDocument.value.sequence_value;
-            urlCollection.insertOne({ ...urlDocument, short_url: short_url }).then(() => {
-              urlCollection.findOne(urlDocument).then(result => {
-                if(result === null) {
-                  res.json({ error: 'URL not added to DB' });
-                } else {
-                  res.json({
-                    original_url: result.original_url,
-                    short_url: result.short_url
-                  });
-                }
-              })
-              .catch(error => res.json({ error: 'invalid query' }));
-            })
-            .catch(error => res.json({ error: 'invalid url' }));
-          })
-          .catch(error => res.json({ error: 'new ID not created' }));
-        } else {
-          res.json({
-            original_url: result.original_url,
-            short_url: result.short_url
-          });
-        }
-      });
-    }
-  });
 });
 
 // Lookup URL ID provided and redirect to corresponding long URL
