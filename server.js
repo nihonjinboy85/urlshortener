@@ -43,7 +43,7 @@ app.post('/api/shorturl/new', (req, res) => {
   const myURL = new URL(req.body.url);
   dns.lookup(myURL.host, (err) => {
     if(err) {
-      res.json({ error: 'invalid URL' });
+      res.json({ error: 'invalid url' });
     } else {
       const urlDocument = { original_url: req.body.url };
       urlCollection.findOne(urlDocument).then(result => {
@@ -63,7 +63,7 @@ app.post('/api/shorturl/new', (req, res) => {
               })
               .catch(error => res.json({ error: 'invalid query' }));
             })
-            .catch(error => res.json({ error: 'invalid URL' }));
+            .catch(error => res.json({ error: 'invalid url' }));
           })
           .catch(error => res.json({ error: 'new ID not created' }));
         } else {
