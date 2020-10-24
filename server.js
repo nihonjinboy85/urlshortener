@@ -48,15 +48,29 @@ app.post('/api/shorturl/new', (req, res) => {
       const urlDocument = { original_url: req.body.url };
       urlCollection.findOne(urlDocument).then(result => {
         if(result === null) {
-          urlCollection.insertOne(urlDocument).then(() => {
-            urlCollection.findOne(urlDocument).then(result => {
-              res.json(result === null ? { error: 'URL not added to DB' } : result);
+          getNextSequenceValue('urlid').then(sequenceDocument => {
+            const short_url = sequenceDocument.value.sequence_value;
+            urlCollection.insertOne({ ...urlDocument, short_url: short_url }).then(() => {
+              urlCollection.findOne(urlDocument).then(result => {
+                if(result === null) {
+                  res.json({ error: 'URL not added to DB' });
+                } else {
+                  res.json({
+                    original_url: result.original_url,
+                    short_url: result.short_url
+                  });
+                }
+              })
+              .catch(error => res.json({ error: 'invalid query' }));
             })
-            .catch(error => res.json({ error: 'invalid query' }));
+            .catch(error => res.json({ error: 'invalid URL' }));
           })
-          .catch(error => res.json({ error: 'invalid URL' }));
+          .catch(error => res.json({ error: 'new ID not created' }));
         } else {
-          res.json(result);
+          res.json({
+            original_url: result.original_url,
+            short_url: result.short_url
+          });
         }
       });
     }
@@ -64,8 +78,8 @@ app.post('/api/shorturl/new', (req, res) => {
 });
 
 // Lookup URL ID provided and redirect to corresponding long URL
-app.get('/api/shorturl/:id', (req, res) => {
-  urlCollection.findOne({ original_url: 'https://forum.freecodecamp.org' })
+app.get('/api/shorturl/:short_url', (req, res) => {
+  urlCollection.findOne({ short_url: Number(req.params.short_url) })
     .then(result => {
       result === null ? res.json({ error: 'invalid URL' }) : res.redirect(result.original_url);
     })
@@ -76,3 +90,11 @@ app.get('/api/shorturl/:id', (req, res) => {
 app.listen(port, function () {
   console.log(`Node.js listening at port ${process.env.PORT}`);
 });
+
+function getNextSequenceValue(sequenceName) {
+  return client.db('url-shortener').collection('counters').findOneAndUpdate(
+    { _id: sequenceName },
+    { $inc: { sequence_value: 1 } },
+    { returnNewDocument: true }
+  );
+}
