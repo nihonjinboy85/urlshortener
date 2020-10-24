@@ -40,7 +40,11 @@ app.get('/', function(req, res){
 
 // Handle POST requests to add new URLs to collection and return short URL
 app.post('/api/shorturl/new', (req, res) => {
-  const myURL = new URL(req.body.url);
+  try {
+    const myURL = new URL(req.body.url);
+  } catch {
+    res.json({ error: 'invalid url' });
+  }
   dns.lookup(myURL.host, (err) => {
     if(err) {
       res.json({ error: 'invalid url' });
