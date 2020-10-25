@@ -40,12 +40,14 @@ app.get('/', function(req, res){
 
 // Handle POST requests to add new URLs to collection and return short URL
 app.post('/api/shorturl/new', (req, res) => {
-  try {
-    const myURL = new URL(req.body.url);
-    dns.lookup(myURL.host, (err) => {
+  console.log(req.body);
+  const myURL = new URL(req.body.url);
+  if(myURL.protocol === 'http:' || myURL.protocol === 'https:') {
+    dns.lookup(myURL.hostname, (err, address) => {
       if(err) {
         res.json({ error: 'invalid url' });
       } else {
+        console.log(address);
         const urlDocument = { original_url: req.body.url };
         urlCollection.findOne(urlDocument).then(result => {
           if(result === null) {
@@ -76,7 +78,7 @@ app.post('/api/shorturl/new', (req, res) => {
         });
       }
     });
-  } catch {
+  } else {
     res.json({ error: 'invalid url' });
   }
 });
